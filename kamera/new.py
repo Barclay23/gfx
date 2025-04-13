@@ -25,38 +25,38 @@ def wczytaj_dane_z_pliku(plik):
     return zbiory_punktow
 
 
-def przekszt(zbiory_punktow, ex, ey, ez, theta_x, theta_y, theta_z, zoom):
+def przekszt(zbiory_punktow, ex, ey, ez, theta_x, theta_y, theta_z, zoom, d):
     wynik = []
 
-    tx = np.radians(theta_x)
-    ty = np.radians(theta_y)
-    tz = np.radians(theta_z)
+    # tx = np.radians(theta_x)
+    # ty = np.radians(theta_y)
+    # tz = np.radians(theta_z)
 
-    Rx = np.array([
-        [1, 0, 0],
-        [0, np.cos(tx), np.sin(tx)],
-        [0, -np.sin(tx), np.cos(tx)]
-    ])
+    # Rx = np.array([
+    #     [1, 0, 0],
+    #     [0, np.cos(tx), np.sin(tx)],
+    #     [0, -np.sin(tx), np.cos(tx)]
+    # ])
 
-    Ry = np.array([
-        [np.cos(ty), 0, -np.sin(ty)],
-        [0, 1, 0],
-        [np.sin(ty), 0, np.cos(ty)]
-    ])
+    # Ry = np.array([
+    #     [np.cos(ty), 0, -np.sin(ty)],
+    #     [0, 1, 0],
+    #     [np.sin(ty), 0, np.cos(ty)]
+    # ])
 
-    Rz = np.array([
-        [np.cos(tz), np.sin(tz), 0],
-        [-np.sin(tz), np.cos(tz), 0],
-        [0, 0, 1]
-    ])
+    # Rz = np.array([
+    #     [np.cos(tz), np.sin(tz), 0],
+    #     [-np.sin(tz), np.cos(tz), 0],
+    #     [0, 0, 1]
+    # ])
 
-    S = np.array([
-        [zoom, 0, 0],
-        [0, zoom, 0],
-        [0, 0, 1]
-    ])
+    # S = np.array([
+    #     [zoom, 0, 0],
+    #     [0, zoom, 0],
+    #     [0, 0, 1]
+    # ])
 
-    R = Rx @ Ry @ Rz
+    # R = Rx @ Ry @ Rz
 
     C = np.array([ex, ey, ez])
 
@@ -67,9 +67,9 @@ def przekszt(zbiory_punktow, ex, ey, ez, theta_x, theta_y, theta_z, zoom):
 
         for dx, dy, dz in zbior:
             a = np.array([dx, dy, dz])
-            d = a + C
-            d_rot = S @ (R @ d)
-            transformed.append(d_rot)  # 3D punkt po transformacji
+            D = a + C
+            #d_rot = S @ (R @ d)
+            transformed.append(D)
 
         indeksy = [
             (0, 1), (1, 2), (2, 3), (3, 0),
@@ -99,8 +99,8 @@ def przekszt(zbiory_punktow, ex, ey, ez, theta_x, theta_y, theta_z, zoom):
                 else:
                     p2 = clip_point
 
-            x1, y1 = p1[0] / abs(p1[2]), p1[1] / abs(p1[2])
-            x2, y2 = p2[0] / abs(p2[2]), p2[1] / abs(p2[2])
+            x1, y1 = p1[0] * d/ (p1[2]), p1[1]*d /( p1[2])
+            x2, y2 = p2[0] * d/ (p2[2]), p2[1]*d /( p2[2])
             proste.append(((x1, y1), (x2, y2)))
         wynik.append(proste)
     return wynik
@@ -114,6 +114,7 @@ class Aplikacja:
         self.ey = 0
         self.ex = 0
         self.ez = 0
+        self.d = 5
         self.theta_x = 0
         self.theta_y = 0
         self.theta_z = 0
@@ -147,7 +148,7 @@ class Aplikacja:
         self.rysuj()
 
     def odswiez_dane(self):
-        self.dane = przekszt(self.original_data, self.ex, self.ey, self.ez, self.theta_x, self.theta_y, self.theta_z, self.zoom)
+        self.dane = przekszt(self.original_data, self.ex, self.ey, self.ez, self.theta_x, self.theta_y, self.theta_z, self.zoom, self.d)
 
     def rysuj(self):
         self.ax.clear()
