@@ -4,6 +4,42 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
+def przesun_kamere(dx, dy, dz, theta_x, theta_y, theta_z):
+    # Zamień kąty na radiany
+    tx = np.radians(theta_x)
+    ty = np.radians(theta_y)
+    tz = np.radians(theta_z)
+
+    # Macierze obrotu (tak jak w przekszt), ale tylko rotacja
+    Rx = np.array([
+        [1, 0, 0],
+        [0, np.cos(tx), -np.sin(tx)],
+        [0, np.sin(tx), np.cos(tx)]
+    ])
+
+    Ry = np.array([
+        [np.cos(ty), 0, np.sin(ty)],
+        [0, 1, 0],
+        [-np.sin(ty), 0, np.cos(ty)]
+    ])
+
+    Rz = np.array([
+        [np.cos(tz), -np.sin(tz), 0],
+        [np.sin(tz), np.cos(tz), 0],
+        [0, 0, 1]
+    ])
+
+    # Całkowita macierz obrotu
+    R = Rz @ Ry @ Rx
+
+    # Wektor ruchu w układzie lokalnym kamery
+    ruch_lokalny = np.array([dx, dy, dz])
+
+    # Ruch w układzie globalnym
+    ruch_globalny = R @ ruch_lokalny
+
+    return ruch_globalny
+
 def wczytaj_dane_z_pliku(plik):
     zbiory_punktow = []
     aktualny_zbior = []
@@ -28,37 +64,46 @@ def wczytaj_dane_z_pliku(plik):
 def przekszt(zbiory_punktow, ex, ey, ez, theta_x, theta_y, theta_z, zoom, d):
     wynik = []
 
-    # tx = np.radians(theta_x)
-    # ty = np.radians(theta_y)
-    # tz = np.radians(theta_z)
+    tx = np.radians(theta_x)
+    ty = np.radians(theta_y)
+    tz = np.radians(theta_z)
 
-    # Rx = np.array([
-    #     [1, 0, 0],
-    #     [0, np.cos(tx), np.sin(tx)],
-    #     [0, -np.sin(tx), np.cos(tx)]
-    # ])
+    # Odwrotne macierze transformacji kamery
+    T_inv = np.array([
+        [1, 0, 0, ex],
+        [0, 1, 0, ey],
+        [0, 0, 1, ez],
+        [0, 0, 0, 1]
+    ])
 
-    # Ry = np.array([
-    #     [np.cos(ty), 0, -np.sin(ty)],
-    #     [0, 1, 0],
-    #     [np.sin(ty), 0, np.cos(ty)]
-    # ])
+    Rx_inv = np.array([
+        [1, 0, 0, 0],
+        [0, np.cos(tx), np.sin(tx), 0],
+        [0, -np.sin(tx), np.cos(tx), 0],
+        [0, 0, 0, 1]
+    ])
 
-    # Rz = np.array([
-    #     [np.cos(tz), np.sin(tz), 0],
-    #     [-np.sin(tz), np.cos(tz), 0],
-    #     [0, 0, 1]
-    # ])
+    Ry_inv = np.array([
+        [np.cos(ty), 0, -np.sin(ty), 0],
+        [0, 1, 0, 0],
+        [np.sin(ty), 0, np.cos(ty), 0],
+        [0, 0, 0, 1]
+    ])
 
-    # S = np.array([
-    #     [zoom, 0, 0],
-    #     [0, zoom, 0],
-    #     [0, 0, 1]
-    # ])
+    Rz_inv = np.array([
+        [np.cos(tz), np.sin(tz), 0, 0],
+        [-np.sin(tz), np.cos(tz), 0, 0],
+        [0, 0, 1, 0],
+        [0, 0, 0, 1]
+    ])
 
-    # R = Rx @ Ry @ Rz
+    R_inv = Rz_inv @ Ry_inv @ Rx_inv
 
-    C = np.array([ex, ey, ez])
+    S = np.array([
+        [zoom, 0, 0],
+        [0, zoom, 0],
+        [0, 0, 1]
+    ])
 
     z_clip = 0.01
 
@@ -66,9 +111,9 @@ def przekszt(zbiory_punktow, ex, ey, ez, theta_x, theta_y, theta_z, zoom, d):
         transformed = []
 
         for dx, dy, dz in zbior:
-            a = np.array([dx, dy, dz])
-            D = a + C
-            #d_rot = S @ (R @ d)
+            A = np.array([dx, dy, dz, 1])
+            D = T_inv @ A
+            D = R_inv @ D
             transformed.append(D)
 
         indeksy = [
@@ -99,10 +144,14 @@ def przekszt(zbiory_punktow, ex, ey, ez, theta_x, theta_y, theta_z, zoom, d):
                 else:
                     p2 = clip_point
 
-            x1, y1 = p1[0] * d/ (p1[2]), p1[1]*d /( p1[2])
-            x2, y2 = p2[0] * d/ (p2[2]), p2[1]*d /( p2[2])
-            proste.append(((x1, y1), (x2, y2)))
+            x1, y1 = p1[0] * d / p1[2], p1[1] * d / p1[2]
+            x2, y2 = p2[0] * d / p2[2], p2[1] * d / p2[2]
+            F1 = S @ np.array([x1, y1, 1])
+            F2 = S @ np.array([x2, y2, 1])
+            proste.append(((F1[0], F1[1]), (F2[0], F2[1])))
+
         wynik.append(proste)
+
     return wynik
 
 
@@ -114,7 +163,7 @@ class Aplikacja:
         self.ey = 0
         self.ex = 0
         self.ez = 0
-        self.d = 5
+        self.d = 1
         self.theta_x = 0
         self.theta_y = 0
         self.theta_z = 0
@@ -164,32 +213,50 @@ class Aplikacja:
         self.canvas.draw()
 
     def up(self):
-        self.ey -= 1
+        ruch = przesun_kamere(0, -1, 0, self.theta_x, self.theta_y, self.theta_z)
+        self.ex += ruch[0]
+        self.ey += ruch[1]
+        self.ez += ruch[2]
         self.odswiez_dane()
         self.rysuj()
 
     def down(self):
-        self.ey += 1
+        ruch = przesun_kamere(0, 1, 0, self.theta_x, self.theta_y, self.theta_z)
+        self.ex += ruch[0]
+        self.ey += ruch[1]
+        self.ez += ruch[2]
         self.odswiez_dane()
         self.rysuj()
 
     def left(self):
-        self.ex += 1
+        ruch = przesun_kamere(1, 0, 0, self.theta_x, self.theta_y, self.theta_z)
+        self.ex += ruch[0]
+        self.ey += ruch[1]
+        self.ez += ruch[2]
         self.odswiez_dane()
         self.rysuj()
 
     def right(self):
-        self.ex -= 1
+        ruch = przesun_kamere(-1, 0, 0, self.theta_x, self.theta_y, self.theta_z)
+        self.ex += ruch[0]
+        self.ey += ruch[1]
+        self.ez += ruch[2]
         self.odswiez_dane()
         self.rysuj()
 
     def front(self):
-        self.ez -= 1
+        ruch = przesun_kamere(0, 0, -1, self.theta_x, self.theta_y, self.theta_z)
+        self.ex += ruch[0]
+        self.ey += ruch[1]
+        self.ez += ruch[2]
         self.odswiez_dane()
         self.rysuj()
 
     def back(self):
-        self.ez += 1
+        ruch = przesun_kamere(0, 0, 1, self.theta_x, self.theta_y, self.theta_z)
+        self.ex += ruch[0]
+        self.ey += ruch[1]
+        self.ez += ruch[2]
         self.odswiez_dane()
         self.rysuj()
 
